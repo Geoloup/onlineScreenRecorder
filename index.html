@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Screen Recorder</title>
+    
+
+    <link rel="shortcut icon" type="image/png" href="icon.png">
+    <link href="style.css" rel="stylesheet" type="text/css" />
+    <style>
+        html {
+            height: 100%;
+            width: 100%;
+            margin:0;
+        }
+
+        #video-container {
+            position: relative;
+        }
+
+        video {
+            width: 90vw;
+            height: 90vh;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            border-radius:5px;
+            transform: translate(-50%,-50%);
+        }
+
+        #overlay {    
+            padding: 10px;
+            cursor: move;
+            z-index: 10;
+            position: absolute;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+        }
+
+        #overlay-text {
+            background:#007bff;
+            padding: 8px;
+            color: white;
+            width: calc(25% + 140px);
+            font-size: 18px;
+            outline: none;
+            margin-right: 2px;
+            border: none;
+            border-top-left-radius: 15px !important;
+            border-bottom-left-radius: 15px !important;
+            border-radius: 5px;
+        }
+
+        #overlay-text::placeholder {
+            color:white
+        }
+
+        #apply-overlay {
+            padding: 8px;
+            font-size: 18px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            cursor: pointer;
+            white-space:nowrap;
+            border-top-right-radius: 15px !important;
+            border-bottom-right-radius: 15px !important;
+            border-radius: 5px;
+        }
+
+        .controls {
+            border-radius: 100px;
+            z-index: 11;
+            display: flex;
+            position: fixed;
+            background: black;
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            bottom: 20px;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            justify-content: center;
+            align-items: center;
+            align-content: center;
+            flex-wrap: nowrap;
+        }
+
+        .stop {
+
+            border: none;
+            background: #f83838;
+            border-radius: 15px;
+            padding: 8px;
+            font-size: 1.25rem;
+            white-space:nowrap;
+            cursor: pointer;
+            margin-left:5px;
+        }
+
+        .start {
+            border: none;
+            background: #3af85a;
+            border-radius: 15px;
+            padding: 8px;
+            font-size: 1.25rem;
+            white-space:nowrap;
+            cursor: pointer;
+        }
+
+        .bl {
+            background:black;
+        }
+
+        #loader {
+            display: none;
+            position: fixed;
+            margin: -8px;
+            z-index:10;
+            height: 100vh;
+            width: 100vw;
+            background-color: #000000e3;
+            align-items: center;
+            justify-content: center;
+            align-content: center;
+            flex-wrap: nowrap;
+            flex-direction: column;
+            color:white;
+        }
+        #loader.show {
+            display:flex !important;
+        }
+        h1 {
+            font-family: cursive;
+        }
+        .shapes {
+           width: 44.8px;
+           height: 44.8px;
+           color: #474bff;
+           background: linear-gradient(currentColor 0 0),
+                  linear-gradient(currentColor 0 0),
+                  linear-gradient(currentColor 0 0),
+                  linear-gradient(currentColor 0 0);
+           background-size: 23.4px 23.4px;
+           background-repeat: no-repeat;
+           animation: shapes-53h9rpmd 1.5s infinite cubic-bezier(0.3,1,0,1);
+        }
+
+        @keyframes shapes-53h9rpmd {
+           0% {
+              background-position: 0    0,100% 0   ,100% 100%,0 100%;
+           }
+
+           33% {
+              background-position: 0    0,100% 0   ,100% 100%,0 100%;
+              width: 67.2px;
+              height: 67.2px;
+           }
+
+           66% {
+              background-position: 100% 0,100% 100%,0    100%,0 0;
+              width: 67.2px;
+              height: 67.2px;
+           }
+
+           100% {
+              background-position: 100% 0,100% 100%,0    100%,0 0;
+           }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loader" >
+        <div class="shapes"></div>
+        <h1>Exporting video</h1>
+    </div>
+    <div id="overlay"></div>
+    <div id="video-container">
+        <video id="video" autoplay></video>
+    </div>
+
+    <div class="controls">
+        <button onclick='selectScreen()' class='start'>Start</button>
+        <button onclick='stopRecording()'class='stop' id='stop'>Stop</button>
+    </div>
+    <script name='js'>
+        function selectScreen() {
+            const displayMediaOptions = {
+                video: {
+                    displaySurface: "browser",
+                },
+                audio: {
+                    suppressLocalAudioPlayback: true,
+                },
+                preferCurrentTab: false,
+                selfBrowserSurface: "exclude",
+                systemAudio: "include",
+                surfaceSwitching: "include",
+                monitorTypeSurfaces: "include",
+            };
+            startCapture(displayMediaOptions);
+        }
+
+        async function startCapture(displayMediaOptions) {
+            try {
+                const captureStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+                window.captureStream = captureStream;
+                setTimeout(() => { startRecording() }, 1000)
+                // Create a video element to play the stream
+                const videoElement = document.createElement('video');
+                videoElement.srcObject = captureStream;
+                videoElement.autoplay = true;
+                document.body.appendChild(videoElement);
+
+
+                // Function to stop stream and download recorded video with overlay
+                function stopStream() {
+                    videoElement.pause();
+                    videoElement.srcObject = null;
+                    videoElement.remove();
+                }
+                // Listen for the stream end event
+                videoElement.onended = () => {
+                    console.log('Stream ended. Stopping...');
+                    stopStream();
+                };
+
+                // Return the capture stream
+                return captureStream;
+            } catch (err) {
+                console.error(`Error: ${err}`);
+            }
+        }
+
+        // Call the function manually when needed
+        // selectScreen();
+        let captureStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const overlayTextInput = document.getElementById('overlay-text');
+        const applyOverlayBtn = document.getElementById('apply-overlay');
+        const startRecordingBtn = document.getElementById('start-recording');
+        const stopRecordingBtn = document.getElementById('stop-recording');
+
+        // Apply the overlay text to the video
+        applyOverlayBtn.addEventListener('click', () => {
+            const overlayText = overlayTextInput.value;
+            overlay.innerText = overlayText;
+            overlay.classList.add('bl')
+        });
+
+        // Start recording video
+        function startRecording() {
+            if (window.captureStream) {
+                mediaRecorder = new MediaRecorder(window.captureStream);
+                mediaRecorder.ondataavailable = function(event) {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                mediaRecorder.start();
+                console.log('Recording started...');
+            } else {
+                console.error('No capture stream available.');
+            }
+        }
+
+        // Stop recording video
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                console.log('Recording stopped...');
+            }
+            loader(5000)
+            window.captureStream.getTracks().forEach(track => track.stop())
+            setTimeout(()=>{downloadRecordedVideoWithOverlay()},5000)
+        }
+
+        // Loader
+        function loader(ms) {
+            document.getElementById('loader').classList.add('show')
+            setTimeout(()=>{
+                document.getElementById('loader').classList.remove('show')
+            },ms)
+        }
+        // Function to download recorded video with overlay
+        function downloadRecordedVideoWithOverlay() {
+            // Combine recorded video chunks into a single Blob
+            const recordedBlob = new Blob(recordedChunks, { type: 'video/webm' });
+
+            // Create a blob URL only if it's not already created
+            var recordedBlobUrl = window.URL.createObjectURL(recordedBlob);
+
+            // Simulate a click to trigger download
+            var a = document.createElement('a');
+            a.href = recordedBlobUrl;
+            a.download = 'recorded_video_with_overlay.webm';
+            var recordedBlobUrl = window.URL.createObjectURL(recordedBlob);
+            a.click();
+            window.captureStream.getTracks()
+        }
+
+        dragElement(document.getElementById("overlay"));
+
+        function dragElement(elmnt) {
+            var pos1 = innerWidth / 2, pos2 = innerHeight / 3, pos3 = 0, pos4 = 0;
+            if (document.getElementById(elmnt.id + "")) {
+                /* if present, the header is where you move the DIV from:*/
+                document.getElementById(elmnt.id + "").onmousedown = dragMouseDown;
+            } else {
+                /* otherwise, move the DIV from anywhere inside the DIV:*/
+                elmnt.onmousedown = dragMouseDown;
+            }
+            elmnt.style.top = (elmnt.offsetTop + pos2) + "px";
+            elmnt.style.left = (elmnt.offsetLeft + pos1) + "px";
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                // get the mouse cursor position at startup:
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                // call a function whenever the cursor moves:
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                // calculate the new cursor position:
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                // set the element's new position:
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                /* stop moving when mouse button is released:*/
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+    </script>
+</body>
+
+</html>
